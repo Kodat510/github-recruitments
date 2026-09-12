@@ -18,7 +18,7 @@ def get_file(file_path):
     return race
 race = get_file("races.csv")
 results = get_file("results.csv")
-lap_times = get_file("lap_time.csv")
+lap_times = get_file("lap_times.csv")
 pit_stops = get_file("pit_stops.csv")
 
 def get_id(year,name):
