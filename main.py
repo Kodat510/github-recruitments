@@ -107,6 +107,7 @@ base_rmse, base_mae = get_metrics(y_test, y_pred_base)
 lr_rmse, lr_mae = get_metrics(y_test, y_pred_lr)
 rf_rmse, rf_mae = get_metrics(y_test, y_pred_rf)
 
+
 print(f"1. Baseline (Lap Only)       -> RMSE: {base_rmse:.3f}s | MAE: {base_mae:.3f}s")
 print(f"2. Linear Reg (+ Tire Age)   -> RMSE: {lr_rmse:.3f}s | MAE: {lr_mae:.3f}s")
 print(f"3. Random Forest (+ Tire Age)-> RMSE: {rf_rmse:.3f}s | MAE: {rf_mae:.3f}s\n")
@@ -135,7 +136,7 @@ plt.plot(driver_stint2['tire_age'], driver_stint2['Pred_Baseline'],
 plt.plot(driver_stint2['tire_age'], driver_stint2['Pred_RandomForest'], 
          linestyle='-', color='blue', label='RF Model (+ Tire Age)', linewidth=2)
 
-plt.title(f'git config --global user.name "Your Name"GP: Predicted vs. Actual Lap Times (Driver ID {sample_driver_id} - Stint 2)', fontsize=12)
+plt.title(f'2019 Spanish GP: Predicted vs. Actual Lap Times (Driver ID {sample_driver_id} - Stint 2)', fontsize=12)
 plt.xlabel('Tire Age (Laps on Set)', fontsize=10)
 plt.ylabel('Lap Time (Seconds)', fontsize=10)
 plt.grid(True, linestyle=':', alpha=0.6)
