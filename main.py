@@ -135,7 +135,7 @@ plt.plot(driver_stint2['tire_age'], driver_stint2['Pred_Baseline'],
 plt.plot(driver_stint2['tire_age'], driver_stint2['Pred_RandomForest'], 
          linestyle='-', color='blue', label='RF Model (+ Tire Age)', linewidth=2)
 
-plt.title(f'GP: Predicted vs. Actual Lap Times (Driver ID {sample_driver_id} - Stint 2)', fontsize=12)
+plt.title(f'git config --global user.name "Your Name"GP: Predicted vs. Actual Lap Times (Driver ID {sample_driver_id} - Stint 2)', fontsize=12)
 plt.xlabel('Tire Age (Laps on Set)', fontsize=10)
 plt.ylabel('Lap Time (Seconds)', fontsize=10)
 plt.grid(True, linestyle=':', alpha=0.6)
