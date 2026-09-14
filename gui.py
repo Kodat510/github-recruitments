@@ -60,6 +60,21 @@ class F1PredictorApp(ctk.CTk):
         )
         self.status_label.pack(expand=True, padx=20, pady=20)
 
+        self.before_metrics_label = ctk.CTkLabel(
+            self.tab_before,
+            text="Before RMS: --",
+            font=ctk.CTkFont(size=12),
+            anchor="w",
+            justify="left"
+        )
+        self.after_metrics_label = ctk.CTkLabel(
+            self.tab_after,
+            text="After RMS: --",
+            font=ctk.CTkFont(size=12),
+            anchor="w",
+            justify="left"
+        )
+
         # State storage
         self.canvas_before = None
         self.canvas_after = None
@@ -117,12 +132,33 @@ class F1PredictorApp(ctk.CTk):
                 self.race_df, self.results_df, self.lap_times_df, self.pit_stops_df, 
                 selected_year, selected_race
             )
-            
+
+            metrics = main.evaluate_model_accuracy(train_df, test_df)
+            before_line_rms = metrics['before']['linear']
+            before_poly_rms = metrics['before']['poly']
+            after_line_rms = metrics['after']['linear']
+            after_poly_rms = metrics['after']['poly']
+
+            self.before_metrics_label.configure(
+                text=(
+                    "Before model RMS difference\n"
+                    f"Linear: {before_line_rms:.4f}s | Poly: {before_poly_rms:.4f}s"
+                )
+            )
+            self.after_metrics_label.configure(
+                text=(
+                    "After model RMS difference\n"
+                    f"Linear: {after_line_rms:.4f}s | Poly: {after_poly_rms:.4f}s"
+                )
+            )
+
             fig_before = main.generate_before_plot(train_df, test_df, selected_race, selected_year)
             fig_after = main.generate_after_plot(train_df, test_df, selected_race, selected_year)
 
             # Hide status label once plots render successfully
             self.status_label.pack_forget()
+            self.before_metrics_label.pack(padx=20, pady=(10, 5), anchor="w")
+            self.after_metrics_label.pack(padx=20, pady=(10, 5), anchor="w")
 
             # Display "Before" plot in Tab 1
             self.canvas_before = FigureCanvasTkAgg(fig_before, master=self.tab_before)

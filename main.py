@@ -7,6 +7,20 @@ from sklearn.pipeline import make_pipeline
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
 
+
+def calculate_rms_difference(actual, predicted):
+    actual_arr = np.asarray(actual, dtype=float)
+    predicted_arr = np.asarray(predicted, dtype=float)
+
+    if actual_arr.shape != predicted_arr.shape:
+        raise ValueError(f"Actual and predicted arrays must have the same shape. Got {actual_arr.shape} and {predicted_arr.shape}.")
+    if actual_arr.size == 0:
+        raise ValueError("Actual and predicted arrays must not be empty.")
+
+    residuals = actual_arr - predicted_arr
+    return float(np.sqrt(np.mean(np.square(residuals))))
+
+
 def get_datasets():
     race = kagglehub.dataset_load(KaggleDatasetAdapter.PANDAS, "rohanrao/formula-1-world-championship-1950-2020", "races.csv")
     results = kagglehub.dataset_load(KaggleDatasetAdapter.PANDAS, "rohanrao/formula-1-world-championship-1950-2020", "results.csv")
@@ -75,7 +89,7 @@ def load_and_preprocess_data(race_df, results_df, lap_times_df, pit_stops_df, ye
 
     return train_df, test_df
 
-def generate_before_plot(train_df, test_df, race_name, year):
+def evaluate_model_accuracy(train_df, test_df):
     X_train_raw = train_df[['tire_age']]
     y_train_raw = train_df['lap_time_sec'] - train_df['lap_time_sec'].iloc[0]
 
@@ -88,10 +102,53 @@ def generate_before_plot(train_df, test_df, race_name, year):
     pred_raw_linear = raw_base + model_raw_linear.predict(X_test)
     pred_raw_poly = raw_base + model_raw_poly.predict(X_test)
 
+    actual_lap_times = test_df['lap_time_sec'].to_numpy()
+    before_metrics = {
+        'linear': calculate_rms_difference(actual_lap_times, pred_raw_linear),
+        'poly': calculate_rms_difference(actual_lap_times, pred_raw_poly),
+    }
+
+    train_df = train_df.copy()
+    train_df['pure_wear_delta'] = train_df['tire_age'] * 0.045
+
+    X_train_corr = train_df[['tire_age']]
+    y_train_corr = train_df['pure_wear_delta']
+
+    model_corr_linear = LinearRegression().fit(X_train_corr, y_train_corr)
+    model_corr_poly = make_pipeline(PolynomialFeatures(degree=2, include_bias=False), Ridge(alpha=20.0)).fit(X_train_corr, y_train_corr)
+
+    stint2_clean_median = test_df['lap_time_sec'].median()
+
+    pred_corr_linear = (stint2_clean_median - 0.4) + model_corr_linear.predict(X_test)
+    pred_corr_poly = (stint2_clean_median - 0.45) + model_corr_poly.predict(X_test)
+
+    after_metrics = {
+        'linear': calculate_rms_difference(actual_lap_times, pred_corr_linear),
+        'poly': calculate_rms_difference(actual_lap_times, pred_corr_poly),
+    }
+
+    return {'before': before_metrics, 'after': after_metrics}
+
+
+def generate_before_plot(train_df, test_df, race_name, year):
+    X_train_raw = train_df[['tire_age']]
+    y_train_raw = train_df['lap_time_sec'] - train_df['lap_time_sec'].iloc[0]
+
+    model_raw_linear = LinearRegression().fit(X_train_raw, y_train_raw)
+    model_raw_poly = make_pipeline(PolynomialFeatures(degree=2, include_bias=False), Ridge(alpha=10.0)).fit(X_train_raw, y_train_raw)
+
+    X_test = test_df[['tire_age']]
+    raw_base = test_df['lap_time_sec'].iloc[0]
+
+    pred_raw_linear = raw_base + model_raw_linear.predict(X_test)
+    pred_raw_poly = raw_base + model_raw_poly.predict(X_test)
+    rms_linear = calculate_rms_difference(test_df['lap_time_sec'].to_numpy(), pred_raw_linear)
+    rms_poly = calculate_rms_difference(test_df['lap_time_sec'].to_numpy(), pred_raw_poly)
+
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(test_df['tire_age'], test_df['lap_time_sec'], marker='o', color='black', label='Actual Lap Time', linewidth=2)
-    ax.plot(test_df['tire_age'], pred_raw_linear, linestyle='--', color='red', label='Raw Linear Model (Inverted)', linewidth=2)
-    ax.plot(test_df['tire_age'], pred_raw_poly, linestyle='-', color='blue', label='Raw Poly Model (Inverted)', linewidth=2)
+    ax.plot(test_df['tire_age'], pred_raw_linear, linestyle='--', color='red', label=f'Raw Linear Model (Inverted) - RMS {rms_linear:.4f}s', linewidth=2)
+    ax.plot(test_df['tire_age'], pred_raw_poly, linestyle='-', color='blue', label=f'Raw Poly Model (Inverted) - RMS {rms_poly:.4f}s', linewidth=2)
     ax.set_title(f'BEFORE: Raw Model ({year} {race_name})', fontsize=12)
     ax.set_xlabel('Tire Age (Laps on Set)', fontsize=10)
     ax.set_ylabel('Lap Time (Seconds)', fontsize=10)
@@ -100,7 +157,9 @@ def generate_before_plot(train_df, test_df, race_name, year):
     fig.tight_layout()
     return fig
 
+
 def generate_after_plot(train_df, test_df, race_name, year):
+    train_df = train_df.copy()
     train_df['pure_wear_delta'] = (train_df['tire_age'] * 0.045)
 
     X_train_corr = train_df[['tire_age']]
@@ -114,11 +173,13 @@ def generate_after_plot(train_df, test_df, race_name, year):
 
     pred_corr_linear = (stint2_clean_median - 0.4) + model_corr_linear.predict(X_test)
     pred_corr_poly = (stint2_clean_median - 0.45) + model_corr_poly.predict(X_test)
+    rms_linear = calculate_rms_difference(test_df['lap_time_sec'].to_numpy(), pred_corr_linear)
+    rms_poly = calculate_rms_difference(test_df['lap_time_sec'].to_numpy(), pred_corr_poly)
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(test_df['tire_age'], test_df['lap_time_sec'], marker='o', color='black', label='Actual Lap Time', linewidth=2)
-    ax.plot(test_df['tire_age'], pred_corr_linear, linestyle='--', color='red', label='Linear Wear Model', linewidth=2)
-    ax.plot(test_df['tire_age'], pred_corr_poly, linestyle='-', color='blue', label='Poly Ridge Wear Model', linewidth=2)
+    ax.plot(test_df['tire_age'], pred_corr_linear, linestyle='--', color='red', label=f'Linear Wear Model - RMS {rms_linear:.4f}s', linewidth=2)
+    ax.plot(test_df['tire_age'], pred_corr_poly, linestyle='-', color='blue', label=f'Poly Ridge Wear Model - RMS {rms_poly:.4f}s', linewidth=2)
     ax.set_title(f'AFTER: Fuel-Corrected Model ({year} {race_name})', fontsize=12)
     ax.set_xlabel('Tire Age (Laps on Set)', fontsize=10)
     ax.set_ylabel('Lap Time (Seconds)', fontsize=10)
